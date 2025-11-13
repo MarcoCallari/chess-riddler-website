@@ -5,12 +5,34 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
   <title>Quiet moves</title>
   <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" integrity="sha384-q94+BZtLrkL1/ohfjR8c6L+A6qzNH9R2hBLwyoAfu3i/WCvQjzL2RQJ3uNHDISdU" crossorigin="anonymous">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&display=swap" rel="stylesheet">
+  <style>
+    .gilda-display-regular {
+      font-family: "Gilda Display", serif;
+      font-weight: 400;
+      font-style: normal;
+    }
+    .flex-item {
+      min-height: 1em;
+    }
+    .main-flex {
+      touch-action:none;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 10px;
+    }
+  </style>
 </head>
 <body>
 
-<div id="main" style="touch-action:none;">
-  <div id="myBoard" style="width: 800px; overflow-x: hidden; max-width: 100%; overflow-y:hidden;"></div>
-  <div id="textBox"></div>
+<div id="main" class="main-flex">
+  <div id="textBox" class="gilda-display-regular" style="font-size:4rem;">Chess zen</div>
+  <div id="solutionText" class="gilda-display-regular" style="font-size:1.5rem; visibility: hidden;"><p>Not quite the right move, try again.</p></div>
+  <div id="myBoard" style="width:700px;"></div>
 </div>
 
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"
@@ -63,16 +85,26 @@
             orientation : puzzle.current_side(),
             onDrop: ((source, target, piece, newPos, oldPos, orientation) => {
                     next_move = puzzle.attempt_uci_move(source+target);
-                    if (!next_move ) { return 'snapback'; }
+                    if (!next_move) {
+                      var solutionItem = document.getElementById("solutionText");
+                      solutionItem.innerHTML = "<p>Not quite the best move. Try again.</p>";
+                      solutionItem.style.visibility = "visible";
+                      return 'snapback';
+                    }
                     else if (next_move === "Solved") {
-                      console.log(newPos)
                       next_move = newPos;
-                      document.getElementById("textBox").innerHTML =  "<p>You got it, that was it.</p>";
+                      var solutionItem = document.getElementById("solutionText");
+                      solutionItem.innerHTML =  "<p>You solved the puzzle, that was it!</p>";
+                      solutionItem.style.visibility = "visible";
                       solved = true;
+                    }
+                    else {
+                      var solutionItem = document.getElementById("solutionText");
+                      solutionItem.innerHTML =  "<p>Good! Keep going!</p>";
+                      solutionItem.style.visibility = "visible";
                     }
             }),
             onSnapEnd: ((oldPos, newPos) => {
-              console.log("end");
               if (next_move && next_move != "Solved") {
                 board.position(next_move);
               }
