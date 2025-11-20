@@ -25,12 +25,15 @@
       flex-direction: column;
       gap: 10px;
     }
-  </style>
+    .highlight {
+      box-shadow: inset 0 0 3px 3px rgb(0, 68, 255);
+    }
+    </style>
 </head>
 <body>
 
 <div id="main" class="main-flex">
-  <div id="textBox" class="gilda-display-regular" style="font-size:4rem;">Chess zen</div>
+  <div id="textBox" class="gilda-display-regular" style="font-size:4rem;">Chess Zen</div>
   <div id="solutionText" class="gilda-display-regular" style="font-size:1.5rem; visibility: hidden;"><p>Not quite the right move, try again.</p></div>
   <div id="myBoard" style="width:700px;"></div>
 </div>
@@ -46,25 +49,60 @@
       import init, { Puzzle } from './chess_riddler_rs.js';
 
       let puzzle;
+      let board;
       let solved = false;
       let next_move;
+      let last_clicked_piece = null;
+      let last_clicked_square = null;
+      let last_clicked_square_div = null;
 
-      function onDragStart (source, piece, position, orientation) {
-        if (solved === true) {
-          return false;
-        }
-        var currentSide = puzzle.current_side()
-        if ((currentSide === 'white' && piece.search(/^w/) === -1) ||
-            (currentSide === 'black' && piece.search(/^b/) === -1)) {
-          return false
-        }
+      function isOwnPiece(piece) {
+          var currentSide = puzzle.current_side();
+          return piece && ((currentSide === 'white' && piece.search(/^w/) >= 0) ||
+                  (currentSide === 'black' && piece.search(/^b/) >= 0));
       }
 
-      function uciToInternal(uci) {
-        if (uci.length != 4) {
-          return null;
+      function onSquareClicked (piece, square) {
+        if (solved === true) {
+          return;
         }
-        return uci.slice(0,2) + "-" + uci.slice(2,4);
+        if (last_clicked_piece && !isOwnPiece(piece)) {
+          last_clicked_square_div.classList.remove("highlight");
+          const next_move = puzzle.attempt_uci_move(last_clicked_square + square);
+          if (next_move) {
+            if (next_move == "Solved") {
+              board.move(last_clicked_square + "-" + square);
+              var solutionItem = document.getElementById("solutionText");
+              solutionItem.innerHTML =  "<p>You solved the puzzle, that was it!</p>";
+              solutionItem.style.visibility = "visible";
+              solved = true;
+            } else if (next_move != "Illegal") {
+              board.move(last_clicked_square + "-" + square);
+              setTimeout(() => {
+                board.position(next_move);
+              }, 250);
+              var solutionItem = document.getElementById("solutionText");
+              solutionItem.innerHTML =  "<p>Good! Keep going!</p>";
+              solutionItem.style.visibility = "visible";
+            }
+          } else {
+              var solutionItem = document.getElementById("solutionText");
+              solutionItem.innerHTML = "<p>Not quite the best move. Try again.</p>";
+              solutionItem.style.visibility = "visible";
+          }
+          last_clicked_square = null;
+          last_clicked_piece = null;
+          last_clicked_square_div = null;
+        }
+        else if (piece) {
+          if (last_clicked_square_div) {
+            last_clicked_square_div.classList.remove("highlight");
+          }
+          last_clicked_piece = piece;
+          last_clicked_square = square;
+          last_clicked_square_div = document.querySelector(`div[data-square="${square}"]`);
+          last_clicked_square_div.classList.add('highlight');
+        }
       }
 
       async function run() {
@@ -78,41 +116,31 @@
         const json = await response.text();
         puzzle = Puzzle.from_json(json);
         var config = {
-            draggable: true,
+            draggable: false,
             pieceTheme: 'img/chesspieces/{piece}.svg',
             dropOffBoard: 'snapback',
             position: puzzle.get_initial_fen(),
             orientation : puzzle.current_side(),
-            onDrop: ((source, target, piece, newPos, oldPos, orientation) => {
-                    next_move = puzzle.attempt_uci_move(source+target);
-                    if (!next_move) {
-                      var solutionItem = document.getElementById("solutionText");
-                      solutionItem.innerHTML = "<p>Not quite the best move. Try again.</p>";
-                      solutionItem.style.visibility = "visible";
-                      return 'snapback';
-                    }
-                    else if (next_move === "Solved") {
-                      next_move = newPos;
-                      var solutionItem = document.getElementById("solutionText");
-                      solutionItem.innerHTML =  "<p>You solved the puzzle, that was it!</p>";
-                      solutionItem.style.visibility = "visible";
-                      solved = true;
-                    }
-                    else {
-                      var solutionItem = document.getElementById("solutionText");
-                      solutionItem.innerHTML =  "<p>Good! Keep going!</p>";
-                      solutionItem.style.visibility = "visible";
-                    }
-            }),
-            onSnapEnd: ((oldPos, newPos) => {
-              if (next_move && next_move != "Solved") {
-                board.position(next_move);
-              }
-            }),
-            onDragStart: onDragStart
         }
-        var board = Chessboard('myBoard', config);
+        board = Chessboard('myBoard', config);
         board.position(puzzle.get_fen());
+        const container = document.getElementById("myBoard");
+        container.addEventListener("pointerdown", (e) => {
+          const child = e.target.closest(".row-5277c > *");
+          if (child) {
+            console.log("Child activated:", child);
+            const square = child.dataset.square;
+            console.log(square);
+            const img = child.querySelector(':scope > img');
+            if (img) {
+              const piece = img.dataset.piece;
+              onSquareClicked(piece, square);
+            }
+            else {
+              onSquareClicked(null, square);
+            }
+          }
+        });
       }
 
       run();
